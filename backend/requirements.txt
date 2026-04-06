@@ -1,17 +1,16 @@
 # ---------------------------------------------------------------
 # Emotional Weight — Backend Dependencies
 # ---------------------------------------------------------------
-# Install with:  pip install -r requirements.txt
+# 1. Create venv:   python -m venv backend/venv
+# 2. Activate:      backend\venv\Scripts\activate   (Windows)
+#                   source backend/venv/bin/activate (Linux/Mac)
+# 3. Install:       pip install -r backend/requirements.txt
+# 4. Install TRIBE: pip install -e git+https://github.com/facebookresearch/tribev2.git#egg=tribev2
 # ---------------------------------------------------------------
 
 # Web framework
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
-
-# TRIBE v2 from Meta FAIR (CC-BY-NC-4.0)
-# Install separately:  pip install -e git+https://github.com/facebookresearch/tribev2.git#egg=tribev2
-# Or add to this file:
-# tribev2 @ git+https://github.com/facebookresearch/tribev2.git
 
 # Sentence tokenisation
 nltk==3.8.1
@@ -24,9 +23,6 @@ nibabel==5.2.0
 
 # HuggingFace Hub — for downloading model weights at startup
 huggingface-hub==0.23.0
-
-# Temp file handling (stdlib, no install needed)
-# tempfile — built-in
 
 # Pytest for test suite (Phase 3)
 pytest==8.2.0
