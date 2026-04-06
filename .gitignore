@@ -49,3 +49,5 @@ desktop.ini
 
 # ── Node (if using local serve/tooling) ─────────────────────────
 node_modules/
+
+instructions.md
