@@ -1,0 +1,51 @@
+# ── Environment ─────────────────────────────────────────────────
+.env
+.env.local
+
+# ── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+
+# ── TRIBE v2 model cache ─────────────────────────────────────────
+cache/
+*.cache/
+model_cache/
+# HuggingFace local cache (if pointed inside project)
+hf_cache/
+
+# ── Temp files generated during inference ───────────────────────
+*.wav
+# Temporary .txt files written by run_tribe_on_text()
+tmp_sentence_*.txt
+
+# ── Jupyter ──────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── OS ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editors ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Node (if using local serve/tooling) ─────────────────────────
+node_modules/

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Emotional Weight — a brain-aware writing tool that uses TRIBE v2 to reveal which cortical regions your sentences activate." />
+  <title>Emotional Weight — Brain-Aware Text Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">🧠</span>
+        <span class="brand-name">Emotional Weight</span>
+        <span class="brand-tag">brain-aware writing</span>
+      </div>
+      <div class="header-actions">
+        <span id="status-indicator" class="status-dot status-idle" title="Backend status"></span>
+        <button id="btn-analyse" class="btn-primary" onclick="analyse()" aria-label="Analyse text for brain region activation">
+          Analyse text
+        </button>
+        <button id="btn-clear" class="btn-ghost" onclick="clearEditor()" aria-label="Clear editor and reset highlights">
+          Clear
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main content area ────────────────────────────────────────────────── -->
+  <main class="app-body" role="main">
+
+    <!-- Writing panel -->
+    <section class="writing-panel" aria-label="Text editor">
+
+      <!-- Textarea (shown before analysis) -->
+      <div id="editor-wrapper" class="editor-wrapper">
+        <textarea
+          id="editor"
+          class="editor-textarea"
+          placeholder="Start writing here…&#10;&#10;Each sentence will be coloured by the brain region it most strongly activates according to TRIBE v2 (d'Ascoli et al., Meta FAIR, 2026)."
+          aria-label="Writing area"
+          spellcheck="true"
+        ></textarea>
+      </div>
+
+      <!-- Highlighted output (shown after analysis) -->
+      <div id="output-wrapper" class="output-wrapper hidden" aria-live="polite" aria-label="Highlighted analysis output">
+        <div id="output" class="output-content"></div>
+        <button class="btn-ghost btn-edit" id="btn-edit" onclick="returnToEditor()" aria-label="Return to editing mode">
+          ← Edit text
+        </button>
+      </div>
+
+      <!-- Loading overlay -->
+      <div id="loading-overlay" class="loading-overlay hidden" role="status" aria-label="Analysing text">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="loading-text">Running TRIBE v2…</p>
+        <p class="loading-sub">Predicting cortical activation across 20,484 fsaverage5 vertices</p>
+      </div>
+
+    </section>
+
+    <!-- Legend panel -->
+    <aside class="legend-panel" role="complementary" aria-label="Brain region legend">
+      <h2 class="legend-title">Brain Regions</h2>
+
+      <ul class="legend-list" role="list">
+
+        <li class="legend-item">
+          <span class="legend-swatch swatch-tpj" aria-hidden="true"></span>
+          <div class="legend-text">
+            <strong class="legend-region">TPJ / MTG</strong>
+            <span class="legend-desc">Emotional salience, attributing feelings &amp; intentions to characters</span>
+          </div>
+        </li>
+
+        <li class="legend-item">
+          <span class="legend-swatch swatch-broca" aria-hidden="true"></span>
+          <div class="legend-text">
+            <strong class="legend-region">Broca Area / IFG</strong>
+            <span class="legend-desc">Syntactic complexity, sentence structure &amp; working memory</span>
+          </div>
+        </li>
+
+        <li class="legend-item">
+          <span class="legend-swatch swatch-sts" aria-hidden="true"></span>
+          <div class="legend-text">
+            <strong class="legend-region">STS / Auditory</strong>
+            <span class="legend-desc">Speech rhythm, prosody &amp; inner-voice imagery</span>
+          </div>
+        </li>
+
+        <li class="legend-item">
+          <span class="legend-swatch swatch-dmn" aria-hidden="true"></span>
+          <div class="legend-text">
+            <strong class="legend-region">Default Mode / PFC</strong>
+            <span class="legend-desc">Semantic integration, narrative continuity &amp; self-referential meaning</span>
+          </div>
+        </li>
+
+        <li class="legend-item">
+          <span class="legend-swatch swatch-neutral" aria-hidden="true"></span>
+          <div class="legend-text">
+            <strong class="legend-region">Neutral</strong>
+            <span class="legend-desc">No dominant region — balanced or low activation</span>
+          </div>
+        </li>
+
+      </ul>
+
+      <div class="legend-note">
+        <p>Click any highlighted sentence to see its region, confidence score, and a neuroscience explanation.</p>
+      </div>
+
+      <div class="legend-credit">
+        <p>Powered by <strong>TRIBE v2</strong><br />d'Ascoli et al., Meta FAIR, 2026<br />
+        <a href="https://github.com/facebookresearch/tribev2" target="_blank" rel="noopener" class="credit-link">github.com/facebookresearch/tribev2</a></p>
+        <p class="license-note">CC-BY-NC-4.0 — non-commercial use only</p>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ── Footer ───────────────────────────────────────────────────────────── -->
+  <footer class="app-footer" role="contentinfo">
+    <span id="word-count">0 words</span>
+    <span class="footer-sep" aria-hidden="true">·</span>
+    <span id="sentence-count">0 sentences</span>
+    <span class="footer-sep" aria-hidden="true">·</span>
+    <span id="region-summary" class="region-summary"></span>
+  </footer>
+
+  <!-- ── Tooltip / Popover ─────────────────────────────────────────────────── -->
+  <div id="sentence-tooltip" class="sentence-tooltip hidden" role="dialog" aria-modal="false" aria-label="Sentence brain region details">
+    <button class="tooltip-close" id="tooltip-close-btn" onclick="closeTooltip()" aria-label="Close tooltip">×</button>
+    <div class="tooltip-region" id="tooltip-region-name"></div>
+    <div class="tooltip-confidence" id="tooltip-confidence"></div>
+    <p class="tooltip-explanation" id="tooltip-explanation"></p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
