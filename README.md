@@ -1,8 +1,22 @@
+---
+title: Emotional Weight
+emoji: 🧠
+colorFrom: amber
+colorTo: purple
+sdk: docker
+pinned: false
+license: cc-by-nc-4.0
+short_description: Brain-aware text editor powered by TRIBE v2 — highlights sentences by cortical region activation.
+---
+
 # Emotional Weight 🧠
 
 > A brain-aware text editor for creative writers — powered by **TRIBE v2** (d'Ascoli et al., Meta FAIR, 2026).
 
 As you write, each sentence is scored against predicted fMRI activation across 20,484 fsaverage5 cortical surface vertices. The dominant brain region for each sentence is highlighted with a meaningful colour, giving writers real-time intuition about the cognitive texture of their prose.
+
+**Live demo:** [sha345trip.github.io/emotions](https://sha345trip.github.io/emotions) ← GitHub Pages frontend  
+**API backend:** [sha345trip-emotional-weight.hf.space](https://sha345trip-emotional-weight.hf.space) ← HuggingFace Spaces (Docker, T4 GPU)
 
 ---
 
@@ -14,13 +28,13 @@ This project uses TRIBE v2 in **text-only mode**: sentences are fed through the 
 
 ### Why does region matter for writing?
 
-| Region | Glasser Parcels | What lights up |
-|--------|-----------------|----------------|
-| **TPJ / Angular Gyrus** | PGi, TE1a | Emotional salience, Theory of Mind, character attribution |
-| **Broca Area / IFG** | 44, 45, IFSp | Syntactic complexity, nested clauses, working memory for grammar |
-| **STS / Auditory** | STSva, STSvp | Speech prosody, voice imagery in silent reading |
-| **Default Mode / PFC** | d32, 10pp, 10d | Semantic integration, narrative continuity, self-referential meaning |
-| **Neutral** | — | Balanced or low activation across all tracked regions |
+| Region | Glasser Parcels | Hemisphere | What activates |
+|--------|-----------------|------------|----------------|
+| **TPJ / Angular Gyrus** | PGi, TE1a | Bilateral | Emotional salience, Theory of Mind, character attribution |
+| **Broca Area / IFG** | 44, 45, IFSp | Left only | Syntactic complexity, nested clauses, working memory for grammar |
+| **STS / Auditory** | STSva, STSvp | Left only | Speech prosody, voice imagery in silent reading |
+| **Default Mode / PFC** | d32, 10pp, 10d | Bilateral | Semantic integration, narrative continuity, self-referential meaning |
+| **Neutral** | — | — | Balanced or low activation across all tracked regions |
 
 A sentence dominated by **TPJ** activation reads as emotionally charged. One that lights up **Broca** tends to be syntactically dense. **STS** activation signals speakable, voice-like prose. **DMN** activation marks sentences that feel meaningful or world-building in a narrative sense.
 
@@ -30,36 +44,49 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         USER BROWSER                                │
-│   GitHub Pages frontend (HTML + CSS + Vanilla JS)                   │
+│           WRITER'S BROWSER                                          │
+│   GitHub Pages  →  sha345trip.github.io/emotions                   │
+│                                                                     │
 │   ┌──────────────────────────┐  ┌──────────────────────────────┐   │
-│   │  Writing textarea        │  │  Brain Region Legend Panel   │   │
-│   │  Highlighted output      │  │  (TPJ / Broca / STS / DMN)  │   │
-│   │  Sentence tooltip popover│  │                              │   │
-│   └─────────────┬────────────┘  └──────────────────────────────┘   │
+│   │  Distraction-free        │  │  Brain Region Legend Panel   │   │
+│   │  prose editor (Lora)     │  │  ┌─────┐ TPJ / MTG          │   │
+│   │                          │  │  │amber│ Emotional salience  │   │
+│   │  "She looked out the     │  │  ├─────┤                    │   │
+│   │   window and felt the    │  │  │purp.│ Broca / IFG        │   │
+│   │   cold press of grief…"  │  │  ├─────┤                    │   │
+│   │                          │  │  │teal │ STS / Auditory     │   │
+│   │  [ Analyse text ]        │  │  ├─────┤                    │   │
+│   └─────────────┬────────────┘  │  │blue │ Default Mode / PFC │   │
+│                 │               └──────────────────────────────┘   │
+│      Word count · Sentence count · Region summary footer           │
 └─────────────────┼───────────────────────────────────────────────────┘
                   │  POST /analyse/batch
-                  │  {"sentences": [...]}
+                  │  {"sentences": ["She looked out…", …]}
                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│         HuggingFace Spaces (Docker, Free T4 GPU)                    │
-│         FastAPI / uvicorn — backend/app.py                          │
+│   HuggingFace Spaces (Docker SDK, Free T4 GPU)                     │
+│   sha345trip-emotional-weight.hf.space                             │
+│   FastAPI / uvicorn — backend/app.py                               │
 │                                                                     │
-│  ① nltk.sent_tokenize(text)                                         │
+│  ① nltk.sent_tokenize(text) — authoritative sentence splitting     │
 │       │                                                             │
-│  ② run_tribe_on_text(sentence)  ──► TRIBE v2 model                 │
-│       │   • write sentence to temp .txt                             │
-│       │   • model.get_events_dataframe(text_path=...)  (TTS)       │
-│       │   • model.predict(events=df)                                │
-│       │     → (n_timesteps, 20484) float array                     │
-│       │   • mean across timesteps → (20484,) activation vector     │
+│  ② run_tribe_on_text(sentence)  ──► TRIBE v2 (facebook/tribev2)   │
+│       │   • write sentence → temp .txt                             │
+│       │   • model.get_events_dataframe(text_path)  ← TTS pipeline  │
+│       │   • model.predict(events=df)                               │
+│       │     → ndarray (n_timesteps, 20 484) float32               │
+│       │   • mean over time axis  →  (20 484,) activation vector   │
 │       │                                                             │
-│  ③ score_regions(vertex_activations)  ──► roi_scorer.py            │
-│       │   • load REGION_VERTICES from data/roi_map.py              │
-│       │   • mean activation per region                             │
-│       │   • softmax normalise → {region: score}                    │
+│  ③ roi_scorer.score_regions(activations)  ──► backend/roi_scorer  │
+│       │   • load REGION_VERTICES from data/roi_map.py             │
+│       │   • mean activation per region over its vertex indices     │
+│       │   • softmax normalise  →  {region: probability}           │
 │       │                                                             │
-│  ④ return [{sentence, region, confidence}, ...]                     │
+│  ④ roi_scorer.classify(activations)                                │
+│       │   • winning region + confidence                            │
+│       │   • Neutral if below uniform baseline + margin             │
+│       │                                                             │
+│  ⑤ return [{sentence, region, confidence}, …]                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,20 +97,25 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
 ```
 emotions/
 ├── backend/
-│   ├── app.py           # FastAPI app — model loading, /analyse endpoints
-│   ├── roi_scorer.py    # Vertex activation → region label (Phase 3)
-│   └── requirements.txt
+│   ├── app.py           # FastAPI app — model loading, inference, /analyse endpoints
+│   ├── roi_scorer.py    # Softmax ROI scoring layer
+│   ├── requirements.txt
+│   └── __init__.py
 ├── data/
-│   ├── roi_map.py           # Hardcoded Glasser parcel → vertex index lookup
-│   └── fetch_roi_indices.py # One-time setup: re-parse atlas & update roi_map.py
-├── frontend/
-│   ├── index.html       # Full writing UI shell
-│   ├── style.css        # Design system & region highlight styles
-│   └── app.js           # BACKEND_URL config + all frontend logic
+│   ├── roi_map.py           # Hardcoded Glasser parcel → fsaverage5 vertex lookup
+│   └── fetch_roi_indices.py # One-time setup: re-parse atlas & regenerate roi_map.py
+├── frontend/            # Local development frontend (BACKEND_URL = localhost)
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
+├── docs/                # GitHub Pages deployment (BACKEND_URL = HF Space URL)
+│   ├── index.html
+│   ├── style.css
+│   └── app.js
 ├── tests/
-│   └── test_roi_scorer.py   # Phase 3: pytest unit tests
-├── Dockerfile               # Phase 5: HF Spaces Docker config
-├── .env.example
+│   └── test_roi_scorer.py   # 23 pytest unit tests
+├── Dockerfile               # HF Spaces Docker config
+├── .env.example             # Required environment variables
 ├── .gitignore
 └── README.md
 ```
@@ -95,40 +127,49 @@ emotions/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/<your-username>/emotional-weight.git
-cd emotional-weight
+git clone https://github.com/sha345trip/emotions.git
+cd emotions
 ```
 
-### 2. Install TRIBE v2
+### 2. Create and activate the virtual environment
 
 ```bash
-pip install -e git+https://github.com/facebookresearch/tribev2.git#egg=tribev2
+python -m venv backend/venv
+
+# Windows
+backend\venv\Scripts\activate
+
+# Linux / macOS
+source backend/venv/bin/activate
 ```
 
 ### 3. Install backend dependencies
 
 ```bash
+# Core requirements
 pip install -r backend/requirements.txt
+
+# TRIBE v2 from Meta FAIR (CC-BY-NC-4.0)
+pip install -e git+https://github.com/facebookresearch/tribev2.git#egg=tribev2
 ```
 
-### 4. (One-time) Regenerate ROI vertex indices from atlas
+### 4. Set your HuggingFace token
 
-If you want to refresh `data/roi_map.py` from the Glasser fsaverage5 annotation:
+```bash
+# Windows
+set HF_TOKEN=hf_...
+
+# Linux / macOS
+export HF_TOKEN=hf_...
+```
+
+### 5. (One-time) Regenerate ROI vertex indices
+
+To refresh `data/roi_map.py` from the Glasser fsaverage5 annotation:
 
 ```bash
 pip install templateflow   # or: pip install neuromaps
 python data/fetch_roi_indices.py
-```
-
-Copy the printed index lists into `data/roi_map.py` under `_PARCEL_VERTICES`.
-
-### 5. Download TRIBE v2 model weights
-
-The model weights are hosted at `facebook/tribev2` on HuggingFace Hub.
-Set your token if the repo is gated:
-
-```bash
-export HF_TOKEN=hf_...   # Windows: set HF_TOKEN=hf_...
 ```
 
 ### 6. Run the backend
@@ -137,44 +178,62 @@ export HF_TOKEN=hf_...   # Windows: set HF_TOKEN=hf_...
 uvicorn backend.app:app --reload --port 8000
 ```
 
-Health-check: [http://localhost:8000/health](http://localhost:8000/health)
+Health-check: [http://localhost:8000/health](http://localhost:8000/health)  
+API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### 7. Open the frontend
 
-Open `frontend/index.html` in your browser directly, or serve it:
-
-```bash
-npx serve frontend/
-```
-
-Make sure `BACKEND_URL` at the top of `frontend/app.js` is set to `http://localhost:8000`.
+Open `frontend/index.html` in your browser (or `npx serve frontend/`).  
+`BACKEND_URL` in `frontend/app.js` is already set to `http://localhost:8000`.
 
 ---
 
-## Setup — Deployed
+## Setup — HuggingFace Spaces Deployment
 
-| Component | Platform | Config |
-|-----------|----------|--------|
-| Backend   | HuggingFace Spaces (Docker, T4 GPU) | Set `HF_TOKEN` as a Space secret |
-| Frontend  | GitHub Pages (`/docs` folder or `gh-pages` branch) | Set `BACKEND_URL` in `app.js` to your HF Space URL |
+1. **Create a new Space** at [huggingface.co/new-space](https://huggingface.co/new-space)
+   - Space name: `emotional-weight`
+   - SDK: **Docker**
+   - Hardware: **T4 GPU** (free tier)
 
-See Phase 5 for the full deployment walkthrough.
+2. **Push this repo** as the Space repo:
+   ```bash
+   git remote add space https://huggingface.co/spaces/sha345trip/emotional-weight
+   git push space main
+   ```
+
+3. **Set secrets** in Space → Settings → Repository secrets:
+   - `HF_TOKEN` = your HuggingFace read token
+
+4. The Space will build the Docker image, download TRIBE v2 weights at first startup, and expose the FastAPI server at `https://sha345trip-emotional-weight.hf.space`.
 
 ---
 
-## Running Tests (Phase 3+)
+## Setup — GitHub Pages Deployment
+
+The `docs/` folder is a production build of the frontend with `BACKEND_URL` pointing to the HF Space.
+
+1. Push to GitHub
+2. Go to repo **Settings → Pages**
+3. Source: **Deploy from a branch** → branch: `main`, folder: `/docs`
+4. GitHub Pages will serve the frontend at `https://sha345trip.github.io/emotions`
+
+---
+
+## Running Tests
 
 ```bash
-pytest tests/
+cd emotions
+.\backend\venv\Scripts\python.exe -m pytest tests/ -v
+# 23 passed in ~0.5s
 ```
 
 ---
 
 ## License
 
-This project uses **TRIBE v2**, which is licensed under **CC-BY-NC-4.0** (Creative Commons Attribution–NonCommercial 4.0 International). Non-commercial use only.
+This project uses **TRIBE v2**, licensed under **CC-BY-NC-4.0** (Creative Commons Attribution–NonCommercial 4.0 International). **Non-commercial use only.**
 
-See: [creativecommons.org/licenses/by-nc/4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+[creativecommons.org/licenses/by-nc/4.0](https://creativecommons.org/licenses/by-nc/4.0/)
 
 ---
 
