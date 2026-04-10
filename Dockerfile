@@ -13,7 +13,7 @@
 #   For GPU-speed inference, upgrade to a T4 GPU Space.
 #
 # Build notes:
-#   - python:3.10-slim keeps the image lean; TRIBE v2 requires Python ≥ 3.10
+#   - python:3.11-slim keeps the image lean; TRIBE v2 requires Python ≥ 3.11
 #   - git is needed to pip-install tribev2 directly from GitHub
 #   - Model weights (~7 GB) are downloaded at first call and cached in /app/cache
 #   - HF_TOKEN must be set as a Space secret (required for facebook/tribev2)
@@ -22,7 +22,7 @@
 # License: CC-BY-NC-4.0  (non-commercial use only)
 # ──────────────────────────────────────────────────────────────────────────
 
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 # System deps: git (pip install from GitHub) + build tools for numpy/scipy
 RUN apt-get update && apt-get install -y --no-install-recommends \
