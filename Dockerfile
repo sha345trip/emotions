@@ -39,6 +39,9 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     torch==2.3.0 --index-url https://download.pytorch.org/whl/cpu
 
+# ── Install uv (TRIBE v2 uses uvx for word extraction) ───────────────────
+RUN pip install --no-cache-dir uv
+
 # ── Copy project files ───────────────────────────────────────────────────
 COPY backend/   ./backend/
 COPY data/      ./data/
