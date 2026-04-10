@@ -52,14 +52,21 @@ nltk.download("punkt_tab", quiet=True)
 # Set PyTorch intra-op threads to match the free HF CPU tier (2 vCPUs).
 # Must be done before any torch import; falls back silently if torch is
 # not yet installed (e.g. during plain unit-test runs).
+# ── CPU thread and GPU optimisation ───────────────────────────────────────
+# We force everything to CPU and disable grad.
+os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Hide GPUs from Torch
 try:
     import torch
+    # [PATCH] The "Global CUDA Lie": trick libraries (Neuralset/TRIBE) into CPU mode
+    torch.cuda.is_available = lambda: False
+    
     _n_threads = int(os.environ.get("OMP_NUM_THREADS", "2"))
     torch.set_num_threads(_n_threads)
     torch.set_grad_enabled(False)  # inference-only; saves memory on CPU
-    log.info(f"PyTorch CPU threads set to {_n_threads}, grad disabled.")
+    log.info(f"PyTorch CPU threads set to {_n_threads}, CUDA disabled (Global Lie).")
 except ImportError:
     pass
+
 
 # ── PATCH: Monkeypatch TRIBE v2 for CPU Compatibility ────────────────────
 # TRIBE v2's word extraction hardcodes compute_type="float16", which crashes
@@ -170,8 +177,8 @@ try:
                 return _orig_get_config_dict(*args, **kwargs)
             PretrainedConfig.get_config_dict = _nuclear_get_config_dict
 
-            # 3. Handle AutoTokenizer specifically (sometimes bypasses utils.hub)
-            from transformers import AutoTokenizer
+            # 3. Handle AutoTokenizer specifically & Force low_cpu_mem_usage
+            from transformers import AutoTokenizer, AutoModel
             _orig_auto_tokenizer_from_pretrained = AutoTokenizer.from_pretrained
             @classmethod
             def _nuclear_tokenizer_from_pretrained(cls, *args, **kwargs):
@@ -180,7 +187,19 @@ try:
                 return _orig_auto_tokenizer_from_pretrained(*args, **kwargs)
             AutoTokenizer.from_pretrained = _nuclear_tokenizer_from_pretrained
 
-            log.info("Successfully applied Nuclear Monkeypatch to Transformers (3 layers).")
+            # [MEMORY OPTIM] Patch AutoModel to always use low_cpu_mem_usage
+            _orig_auto_model_from_pretrained = AutoModel.from_pretrained
+            @classmethod
+            def _nuclear_model_from_pretrained(cls, *args, **kwargs):
+                if not kwargs.get("token") and os.environ.get("HF_TOKEN"):
+                    kwargs["token"] = os.environ.get("HF_TOKEN")
+                # Force low_cpu_mem_usage to fit Llama 3.2 on 16GB RAM
+                kwargs["low_cpu_mem_usage"] = True
+                kwargs["device_map"] = None # Ensure it doesn't try to use auto device mapping which might hit CUDA
+                return _orig_auto_model_from_pretrained(*args, **kwargs)
+            AutoModel.from_pretrained = _nuclear_model_from_pretrained
+
+            log.info("Successfully applied Nuclear Monkeypatch to Transformers (4 layers + Memory Optims).")
         except Exception as patch_err:
             log.error(f"Failed to apply Nuclear Monkeypatch: {patch_err}")
     else:
