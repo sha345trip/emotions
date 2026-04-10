@@ -32,6 +32,12 @@
     </div>
   </header>
 
+  <!-- ── Error banner (shown on API failure) ──────────────────────────────── -->
+  <div id="error-banner" class="error-banner hidden" role="alert" aria-live="assertive">
+    <p id="error-message"></p>
+    <button class="error-dismiss" onclick="dismissError()" aria-label="Dismiss error">×</button>
+  </div>
+
   <!-- ── Main content area ────────────────────────────────────────────────── -->
   <main class="app-body" role="main">
 

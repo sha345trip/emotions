@@ -228,24 +228,54 @@ body {
 }
 
 /* ── Highlighted output ─────────────────────────────────────── */
+
+/*
+  The output wrapper uses a light background so that:
+  - Neutral sentences (no highlight) remain readable (dark text on off-white)
+  - Coloured highlight spans blend naturally with the content area
+*/
+.output-wrapper {
+  background: hsl(220, 20%, 97%);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  margin: var(--sp-lg) var(--sp-lg) 0;
+  border: 1px solid hsl(220, 20%, 88%);
+  border-bottom: none;
+}
+
 .output-content {
   font-family: var(--font-prose);
   font-size: 19px;
-  line-height: 1.85;
-  color: hsl(0, 0%, 15%);  /* dark text on light highlights */
+  line-height: 1.95;
+  color: hsl(220, 15%, 18%);  /* readable on the light output-wrapper bg */
+}
+
+/* Sentence enter animation (stagger controlled via JS animationDelay) */
+@keyframes sentence-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.sentence-enter {
+  animation: sentence-in 0.28s ease both;
 }
 
 .sentence-span {
   display: inline;
   border-radius: 3px;
-  padding: 2px 1px;
+  padding: 1px 2px;
   cursor: pointer;
   transition: filter var(--t-fast), box-shadow var(--t-fast);
   border-left: 3px solid transparent;
-  padding-left: 4px;
+  padding-left: 5px;
+  margin-right: 1px;
 }
-.sentence-span:hover { filter: brightness(0.93); box-shadow: 0 1px 6px rgba(0,0,0,0.12); }
-.sentence-span:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.sentence-span:hover { filter: brightness(0.92); box-shadow: 0 1px 8px rgba(0,0,0,0.14); }
+.sentence-span:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; border-radius: 2px; }
+
+/* Neutral sentences — no highlight, inherit the output-wrapper's off-white bg */
+.sentence-span:not([class*="region-"]) {
+  color: hsl(220, 12%, 30%);
+  border-left-color: hsl(220, 12%, 80%);
+}
 
 /* Region highlight classes */
 .region-tpj {
@@ -388,6 +418,33 @@ body {
   opacity: 0.7;
 }
 
+/* ── Error banner ────────────────────────────────────────────── */
+.error-banner {
+  background: hsl(0, 70%, 95%);
+  border: 1px solid hsl(0, 60%, 80%);
+  border-top: none;
+  padding: 10px var(--sp-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  font-size: 13px;
+  color: hsl(0, 55%, 35%);
+  animation: slide-down 0.2s ease;
+}
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.error-banner p { flex: 1; }
+.error-dismiss {
+  background: none; border: none;
+  font-size: 18px; cursor: pointer;
+  color: hsl(0, 40%, 55%);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.error-dismiss:hover { color: hsl(0, 55%, 35%); }
+
 /* ── Footer ─────────────────────────────────────────────────── */
 .app-footer {
   height: 44px;
@@ -401,6 +458,7 @@ body {
   color: var(--c-text-muted);
   position: sticky;
   bottom: 0;
+  z-index: 10;
 }
 .footer-sep { opacity: 0.4; }
 .region-summary { margin-left: auto; font-size: 11px; }
@@ -447,6 +505,25 @@ body {
   font-size: 13px;
   line-height: 1.65;
   color: hsl(0,0%,25%);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .app-body {
+    grid-template-columns: 1fr;
+  }
+  .legend-panel {
+    border-top: 1px solid var(--c-border);
+    border-right: none;
+    padding: var(--sp-lg);
+  }
+  .writing-panel {
+    border-right: none;
+  }
+  .output-wrapper {
+    margin: var(--sp-sm);
+  }
+  .brand-tag { display: none; }
 }
 
 /* ── Utility ─────────────────────────────────────────────────── */
