@@ -15,8 +15,8 @@ short_description: Brain-aware text editor powered by TRIBE v2 — highlights se
 
 As you write, each sentence is scored against predicted fMRI activation across 20,484 fsaverage5 cortical surface vertices. The dominant brain region for each sentence is highlighted with a meaningful colour, giving writers real-time intuition about the cognitive texture of their prose.
 
-**Live demo:** [sha345trip.github.io/emotions](https://sha345trip.github.io/emotions) ← GitHub Pages frontend  
-**API backend:** [sha345trip-emotional-weight.hf.space](https://sha345trip-emotional-weight.hf.space) ← HuggingFace Spaces (Docker, T4 GPU)
+**Live demo:** [shanky1230.github.io/emotions](https://shanky1230.github.io/emotions) ← GitHub Pages frontend  
+**API backend:** [shanky1230-emotional-weight.hf.space](https://shanky1230-emotional-weight.hf.space) ← HuggingFace Spaces (Docker, T4 GPU)
 
 ---
 
@@ -45,7 +45,7 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │           WRITER'S BROWSER                                          │
-│   GitHub Pages  →  sha345trip.github.io/emotions                   │
+│   GitHub Pages  →  shanky1230.github.io/emotions                   │
 │                                                                     │
 │   ┌──────────────────────────┐  ┌──────────────────────────────┐   │
 │   │  Distraction-free        │  │  Brain Region Legend Panel   │   │
@@ -65,7 +65,7 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │   HuggingFace Spaces (Docker SDK, Free T4 GPU)                     │
-│   sha345trip-emotional-weight.hf.space                             │
+│   shanky1230-emotional-weight.hf.space                             │
 │   FastAPI / uvicorn — backend/app.py                               │
 │                                                                     │
 │  ① nltk.sent_tokenize(text) — authoritative sentence splitting     │
@@ -127,7 +127,7 @@ emotions/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/sha345trip/emotions.git
+git clone https://github.com/shanky1230/emotions.git
 cd emotions
 ```
 
@@ -197,14 +197,14 @@ Open `frontend/index.html` in your browser (or `npx serve frontend/`).
 
 2. **Push this repo** as the Space repo:
    ```bash
-   git remote add space https://huggingface.co/spaces/sha345trip/emotional-weight
+   git remote add space https://huggingface.co/spaces/shanky1230/emotional-weight
    git push space main
    ```
 
 3. **Set secrets** in Space → Settings → Repository secrets:
    - `HF_TOKEN` = your HuggingFace read token
 
-4. The Space will build the Docker image, download TRIBE v2 weights at first startup, and expose the FastAPI server at `https://sha345trip-emotional-weight.hf.space`.
+4. The Space will build the Docker image, download TRIBE v2 weights at first startup, and expose the FastAPI server at `https://shanky1230-emotional-weight.hf.space`.
 
 ---
 
@@ -215,7 +215,7 @@ The `docs/` folder is a production build of the frontend with `BACKEND_URL` poin
 1. Push to GitHub
 2. Go to repo **Settings → Pages**
 3. Source: **Deploy from a branch** → branch: `main`, folder: `/docs`
-4. GitHub Pages will serve the frontend at `https://sha345trip.github.io/emotions`
+4. GitHub Pages will serve the frontend at `https://shanky1230.github.io/emotions`
 
 ---
 

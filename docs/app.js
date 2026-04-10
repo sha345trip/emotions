@@ -19,7 +19,7 @@
  * Local dev  : "http://localhost:8000"
  * HF Spaces  : "https://<your-space>.hf.space"  ← set in Phase 5
  */
-const BACKEND_URL = "https://sha345trip-emotional-weight.hf.space";  // ? HF Spaces deployed URL
+const BACKEND_URL = "https://shanky1230-emotional-weight.hf.space";  // ? HF Spaces deployed URL
 
 // ── Region metadata (mirrors data/roi_map.py REGION_META) ─────────────────
 
