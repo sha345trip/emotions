@@ -1,14 +1,14 @@
 """
-Emotional Weight — FastAPI Backend (Phase 2)
+Emotional Weight — FastAPI Backend (Phase 3)
 =============================================
-Adds TRIBE v2 model loading and the full text→vertex-activation inference
-pipeline on top of the Phase 1 skeleton.
+Full inference + ROI scoring pipeline.
 
 Pipeline per sentence:
     text  →  TTS via model.get_events_dataframe()
           →  model.predict()  →  (n_timesteps, 20484) float32
           →  mean across timesteps  →  (20484,) activation vector
-          →  preliminary ROI scoring (Phase 3 moves this to roi_scorer.py)
+          →  roi_scorer.score_regions()  →  {region: softmax_prob}
+          →  roi_scorer.classify()       →  (winning_region, confidence)
           →  {sentence, region, confidence}
 
 License: CC-BY-NC-4.0 (non-commercial use only)
@@ -33,7 +33,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
-from data.roi_map import REGION_VERTICES  # {region: [vertex_indices]}
+from data.roi_map import REGION_VERTICES          # {region: [vertex_indices]}
+from backend.roi_scorer import score_regions, classify  # Phase 3 scoring layer
 
 # ── Logging ──────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
@@ -94,7 +95,7 @@ app = FastAPI(
         "Predicts cortical activation patterns from text and maps them "
         "to named brain regions (HCP Glasser parcellation)."
     ),
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -187,67 +188,29 @@ def run_tribe_on_text(sentence: str) -> np.ndarray:
             pass
 
 
-def score_regions_preliminary(vertex_activations: np.ndarray) -> dict[str, float]:
-    """
-    Preliminary ROI scoring used in Phase 2.
-
-    Computes the mean activation across each region's vertices and performs
-    min-max normalisation so scores are comparable and sum-interpretable.
-
-    Phase 3 replaces this with a proper softmax-normalised implementation
-    in backend/roi_scorer.py.
-
-    Returns
-    -------
-    dict mapping region name → normalised score (0.0 – 1.0)
-    """
-    raw: dict[str, float] = {}
-    for region, indices in REGION_VERTICES.items():
-        if not indices:
-            raw[region] = 0.0
-            continue
-        raw[region] = float(vertex_activations[indices].mean())
-
-    # Min-max normalise so all scores are in [0, 1]
-    values = list(raw.values())
-    v_min, v_max = min(values), max(values)
-    span = v_max - v_min if v_max != v_min else 1.0
-
-    return {region: (score - v_min) / span for region, score in raw.items()}
-
-
-def classify_sentence(vertex_activations: np.ndarray) -> tuple[str, float]:
-    """
-    Return (winning_region, confidence) for a given activation vector.
-
-    confidence is the normalised score of the top region (0–1).
-    Confidence below 0.2 (all regions near-uniform) → 'Neutral'.
-    """
-    scores = score_regions_preliminary(vertex_activations)
-    top_region = max(scores, key=scores.__getitem__)
-    top_score  = scores[top_region]
-
-    NEUTRAL_THRESHOLD = 0.2
-    if top_score < NEUTRAL_THRESHOLD:
-        return "Neutral", top_score
-
-    return top_region, top_score
+# score_regions() and classify() are now imported from backend.roi_scorer (Phase 3).
+# They replace the preliminary min-max scoring used in Phase 2.
 
 
 def _process_sentences(sentences: list[str]) -> list[SentenceResult]:
-    """Shared logic: run inference on a list of sentences, return results."""
+    """
+    Shared logic: run TRIBE v2 inference on each sentence, score via ROI
+    scorer (Phase 3), return structured results.
+    """
     results = []
     for sent in sentences:
         sent = sent.strip()
         if not sent:
             continue
-        activations = run_tribe_on_text(sent)
-        region, confidence = classify_sentence(activations)
+        activations          = run_tribe_on_text(sent)         # (20484,) float32
+        region, confidence   = classify(activations)           # roi_scorer.classify
+        all_scores           = score_regions(activations)      # full probability dict
         results.append(SentenceResult(
             sentence=sent,
             region=region,
             confidence=round(confidence, 4),
         ))
+        log.debug(f"  → {region} ({confidence:.3f}) | {all_scores}")
     return results
 
 
