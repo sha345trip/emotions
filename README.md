@@ -15,7 +15,7 @@ short_description: Brain-aware text editor highlighting sentences via TRIBE v2.
 
 As you write, each sentence is scored against predicted fMRI activation across 20,484 fsaverage5 cortical surface vertices. The dominant brain region for each sentence is highlighted with a meaningful colour, giving writers real-time intuition about the cognitive texture of their prose.
 
-**Live demo:** [shanky1230.github.io/emotions](https://shanky1230.github.io/emotions) ← GitHub Pages frontend  
+**Live demo:** [sha345trip.github.io/emotions](https://sha345trip.github.io/emotions) ← GitHub Pages frontend  
 **API backend:** [shanky1230-emotional-weight.hf.space](https://shanky1230-emotional-weight.hf.space) ← HuggingFace Spaces (Docker, T4 GPU)
 
 ---
@@ -45,7 +45,7 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │           WRITER'S BROWSER                                          │
-│   GitHub Pages  →  shanky1230.github.io/emotions                   │
+│   GitHub Pages  →  sha345trip.github.io/emotions                   │
 │                                                                     │
 │   ┌──────────────────────────┐  ┌──────────────────────────────┐   │
 │   │  Distraction-free        │  │  Brain Region Legend Panel   │   │
@@ -127,7 +127,7 @@ emotions/
 ### 1. Clone the repo
 
 ```bash
-git clone https://github.com/shanky1230/emotions.git
+git clone https://github.com/sha345trip/emotions.git
 cd emotions
 ```
 
@@ -215,7 +215,7 @@ The `docs/` folder is a production build of the frontend with `BACKEND_URL` poin
 1. Push to GitHub
 2. Go to repo **Settings → Pages**
 3. Source: **Deploy from a branch** → branch: `main`, folder: `/docs`
-4. GitHub Pages will serve the frontend at `https://shanky1230.github.io/emotions`
+4. GitHub Pages will serve the frontend at `https://sha345trip.github.io/emotions`
 
 ---
 
