@@ -54,7 +54,7 @@ RUN pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/tribev2.git#egg=tribev2"
 
 # ── Environment ───────────────────────────────────────────────────────────
-ENV HF_TOKEN=""
+# ENV HF_TOKEN=""  <- [REMOVED] allow Space Secrets to inject this
 ENV HF_HOME="/app/cache"
 ENV PYTHONPATH="/app"
 # Use all available vCPUs for PyTorch intra-op parallelism on free CPU tier

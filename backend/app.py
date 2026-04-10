@@ -126,6 +126,20 @@ except Exception as e:
     log.error(f"Failed to apply TRIBE v2 monkeypatch: {e}")
   # torch not installed — model loading will fail gracefully later
 
+# ── HuggingFace Authentication (for gated models like Llama 3.2) ──────────
+# We explicitly call login() to ensure the session is authenticated for all
+# libraries (transformers, neuralset) using the Space SECRET.
+try:
+    import huggingface_hub
+    _token = os.environ.get("HF_TOKEN")
+    if _token:
+        huggingface_hub.login(token=_token)
+        log.info(f"Authenticated with HuggingFace Hub. Token starts with: {_token[:4]}...")
+    else:
+        log.warning("HF_TOKEN not found in environment. Gated models (Llama 3.2) may fail to load.")
+except Exception as e:
+    log.error(f"Failed to authenticate with HuggingFace Hub: {e}")
+
 # ── Sentence cap (CPU latency guard) ─────────────────────────────────────
 # Free CPU tier: ~60–120 s per sentence. Cap keeps total wait ≤ ~10 min.
 MAX_SENTENCES_PER_REQUEST: int = int(os.environ.get("MAX_SENTENCES", "5"))
