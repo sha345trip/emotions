@@ -119,8 +119,8 @@ try:
         return pd.DataFrame(words)
 
     # Apply the patch
-    ExtractWordsFromAudio._get_transcript_from_audio = _get_transcript_from_audio_patched
-    log.info("Successfully monkeypatched ExtractWordsFromAudio to use [int8] compute type.")
+    ExtractWordsFromAudio._get_transcript_from_audio = staticmethod(_get_transcript_from_audio_patched)
+    log.info("Successfully monkeypatched ExtractWordsFromAudio (as staticmethod) to use [int8] compute type.")
 
 except Exception as e:
     log.error(f"Failed to apply TRIBE v2 monkeypatch: {e}")
