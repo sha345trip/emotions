@@ -133,8 +133,11 @@ async function checkHealth() {
         ? "status-dot status-ready"
         : "status-dot status-loading";
       statusDot.title = data.model_loaded
-        ? "Backend ready"
+        ? `Backend ready · CPU mode · max ${data.max_sentences_per_request ?? MAX_SENTENCES} sentences`
         : "Backend up — TRIBE v2 model loading…";
+      if (data.max_sentences_per_request) {
+        MAX_SENTENCES = data.max_sentences_per_request;
+      }
     }
   } catch {
     statusDot.className = "status-dot status-offline";
@@ -152,11 +155,25 @@ function splitSentences(text) {
     .filter(Boolean);
 }
 
+// ── Sentence cap (read from /health at startup) ───────────────────────────
+let MAX_SENTENCES = 5;  // default; overridden by /health response
+
 // ── Analyse ────────────────────────────────────────────────────────────────
 
 async function analyse() {
   const text = editorEl.value.trim();
   if (!text) return;
+
+  // Client-side sentence count check before hitting the API
+  const clientSentences = splitSentences(text);
+  if (clientSentences.length > MAX_SENTENCES) {
+    showError(
+      `This text has ${clientSentences.length} sentences. ` +
+      `The free CPU backend is limited to ${MAX_SENTENCES} sentences per request ` +
+      `(each takes ~60–120 s on CPU). Please shorten your text or analyse a passage at a time.`
+    );
+    return;
+  }
 
   errorBanner.classList.add("hidden");
   loadingEl.classList.remove("hidden");
@@ -171,6 +188,7 @@ async function analyse() {
 
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
+      // Sentence cap error — surface it clearly
       throw new Error(detail.detail || `HTTP ${res.status}`);
     }
 

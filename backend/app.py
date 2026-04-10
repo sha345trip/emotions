@@ -1,15 +1,19 @@
 """
-Emotional Weight — FastAPI Backend (Phase 3)
-=============================================
-Full inference + ROI scoring pipeline.
+Emotional Weight — FastAPI Backend (Phase 5 / CPU edition)
+===========================================================
+Full inference + ROI scoring pipeline, optimised for CPU-only deployment
+on HuggingFace Spaces free tier (2 vCPU, 16 GB RAM).
+
+⚠️  CPU inference is slow: TRIBE v2 takes ~60–120 s per sentence on free CPU.
+    Requests are capped at MAX_SENTENCES_PER_REQUEST to stay within reasonable
+    HTTP timeouts. For real-time speed, use a T4 GPU Space.
 
 Pipeline per sentence:
-    text  →  TTS via model.get_events_dataframe()
+    text  →  model.get_events_dataframe()  (TTS, CPU)
           →  model.predict()  →  (n_timesteps, 20484) float32
-          →  mean across timesteps  →  (20484,) activation vector
+          →  mean over time axis  →  (20484,) activation vector
           →  roi_scorer.score_regions()  →  {region: softmax_prob}
           →  roi_scorer.classify()       →  (winning_region, confidence)
-          →  {sentence, region, confidence}
 
 License: CC-BY-NC-4.0 (non-commercial use only)
 Model:   facebook/tribev2  —  d'Ascoli et al., Meta FAIR, 2026
@@ -43,6 +47,23 @@ log = logging.getLogger("emotional_weight")
 # ── NLTK punkt tokenizer ─────────────────────────────────────────────────
 nltk.download("punkt",     quiet=True)
 nltk.download("punkt_tab", quiet=True)
+
+# ── CPU thread optimisation ───────────────────────────────────────────────
+# Set PyTorch intra-op threads to match the free HF CPU tier (2 vCPUs).
+# Must be done before any torch import; falls back silently if torch is
+# not yet installed (e.g. during plain unit-test runs).
+try:
+    import torch
+    _n_threads = int(os.environ.get("OMP_NUM_THREADS", "2"))
+    torch.set_num_threads(_n_threads)
+    torch.set_grad_enabled(False)  # inference-only; saves memory on CPU
+    log.info(f"PyTorch CPU threads set to {_n_threads}, grad disabled.")
+except ImportError:
+    pass  # torch not installed — model loading will fail gracefully later
+
+# ── Sentence cap (CPU latency guard) ─────────────────────────────────────
+# Free CPU tier: ~60–120 s per sentence. Cap keeps total wait ≤ ~10 min.
+MAX_SENTENCES_PER_REQUEST: int = int(os.environ.get("MAX_SENTENCES", "5"))
 
 # ── Global model handle (populated in lifespan) ───────────────────────────
 _model: Any = None
@@ -95,7 +116,7 @@ app = FastAPI(
         "Predicts cortical activation patterns from text and maps them "
         "to named brain regions (HCP Glasser parcellation)."
     ),
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan,
 )
 
@@ -163,11 +184,18 @@ def run_tribe_on_text(sentence: str) -> np.ndarray:
         tmp_path = f.name
 
     try:
-        # Step 2 — word-level timing events via built-in TTS
-        events_df = _model.get_events_dataframe(text_path=tmp_path)
+        # Wrap prediction in no_grad to prevent unnecessary gradient tracking on CPU
+        import torch
+        with torch.no_grad():
+            # Step 2 — word-level timing events via built-in TTS
+            events_df = _model.get_events_dataframe(text_path=tmp_path)
 
-        # Step 3 — cortical prediction: (n_timesteps, n_vertices)
-        preds = _model.predict(events=events_df)   # numpy array
+            # Step 3 — cortical prediction: (n_timesteps, n_vertices)
+            preds = _model.predict(events=events_df)   # numpy array
+    except ImportError:
+        # torch not available path (should not happen in production)
+        events_df = _model.get_events_dataframe(text_path=tmp_path)
+        preds = _model.predict(events=events_df)
 
         # Validate shape
         if preds.ndim != 2 or preds.shape[1] != N_VERTICES:
@@ -227,7 +255,9 @@ async def health():
     return {
         "status": "ok",
         "model_loaded": _model is not None,
-        "version": "0.2.0",
+        "hardware": "cpu",
+        "max_sentences_per_request": MAX_SENTENCES_PER_REQUEST,
+        "version": "0.4.0",
     }
 
 
@@ -261,6 +291,16 @@ async def analyse(req: AnalyseRequest):
     if not sentences:
         raise HTTPException(status_code=422, detail="Could not extract sentences from input.")
 
+    if len(sentences) > MAX_SENTENCES_PER_REQUEST:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Too many sentences ({len(sentences)}). "
+                f"Free CPU tier is limited to {MAX_SENTENCES_PER_REQUEST} sentences per request "
+                f"(~60–120 s each on CPU). Please shorten your text."
+            ),
+        )
+
     log.info(f"/analyse — {len(sentences)} sentence(s) received.")
     return _process_sentences(sentences)
 
@@ -288,6 +328,16 @@ async def analyse_batch(req: BatchAnalyseRequest):
     sentences = [s.strip() for s in req.sentences if s.strip()]
     if not sentences:
         raise HTTPException(status_code=422, detail="sentences list must not be empty.")
+
+    if len(sentences) > MAX_SENTENCES_PER_REQUEST:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Too many sentences ({len(sentences)}). "
+                f"Free CPU tier is limited to {MAX_SENTENCES_PER_REQUEST} sentences per request. "
+                f"Please analyse fewer sentences at a time."
+            ),
+        )
 
     log.info(f"/analyse/batch — {len(sentences)} sentence(s) received.")
     return _process_sentences(sentences)
