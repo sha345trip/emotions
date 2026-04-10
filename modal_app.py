@@ -27,10 +27,16 @@ image = (
     .env({"HF_HOME": "/cache", "OMP_NUM_THREADS": "4"})
 )
 
-# 2. Define Persistent Storage (Volume) for 10GB+ of models
-cache_vol = modal.Volume.from_name("emotional-weight-cache", create_if_missing=True)
-
+# 3. Define the app with explicit local mounts
 app = modal.App("emotional-weight")
+
+# Create a mount for the local project structure (data/ and backend/)
+# This ensures these folders are visible inside the container
+local_mount = modal.Mount.from_local_dir(
+    ".", 
+    remote_path="/root",
+    condition=lambda p: any(p.endswith(s) for s in [".py", ".csv", ".json"])
+)
 
 @app.cls(
     image=image,
@@ -38,6 +44,7 @@ app = modal.App("emotional-weight")
     volumes={"/cache": cache_vol},
     secrets=[modal.Secret.from_name("hf-token")],
     scaledown_window=300,
+    mounts=[local_mount],
 )
 class EmotionalWeightModel:
     @modal.enter()
@@ -46,6 +53,11 @@ class EmotionalWeightModel:
         import torch
         import nltk
         from tribev2.main import TribeModel
+        
+        # Enable nuclear token injection inside the container
+        if os.environ.get("HF_TOKEN"):
+             from huggingface_hub import login
+             login(token=os.environ["HF_TOKEN"])
         
         nltk.download("punkt",     quiet=True)
         nltk.download("punkt_tab", quiet=True)
