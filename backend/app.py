@@ -185,33 +185,33 @@ def run_tribe_on_text(sentence: str) -> np.ndarray:
 
     try:
         # Wrap prediction in no_grad to prevent unnecessary gradient tracking on CPU
-        import torch
-        with torch.no_grad():
-            # Step 2 — word-level timing events via built-in TTS
+        try:
+            import torch
+            with torch.no_grad():
+                # Step 2 — word-level timing events via built-in TTS
+                events_df = _model.get_events_dataframe(text_path=tmp_path)
+
+                # Step 3 — cortical prediction: (n_timesteps, n_vertices)
+                preds = _model.predict(events=events_df)   # numpy array
+        except ImportError:
+            # torch not available path (fallback)
             events_df = _model.get_events_dataframe(text_path=tmp_path)
+            preds = _model.predict(events=events_df)
 
-            # Step 3 — cortical prediction: (n_timesteps, n_vertices)
-            preds = _model.predict(events=events_df)   # numpy array
-    except ImportError:
-        # torch not available path (fallback)
-        events_df = _model.get_events_dataframe(text_path=tmp_path)
-        preds = _model.predict(events=events_df)
+        # Validate shape
+        if preds is None or preds.shape[0] == 0:
+            log.warning(f"TRIBE v2 produced no activation for sentence: '{sentence[:30]}...'")
+            return np.zeros(N_VERTICES, dtype=np.float32)
 
-    # ── [FIX] Indented correctly — execute regardless of import path ───────────
-    # Validate shape
-    if preds is None or preds.shape[0] == 0:
-        log.warning(f"TRIBE v2 produced no activation for sentence: '{sentence[:30]}...'")
-        return np.zeros(N_VERTICES, dtype=np.float32)
+        if preds.ndim != 2 or preds.shape[1] != N_VERTICES:
+            raise ValueError(
+                f"Unexpected prediction shape from TRIBE v2: {preds.shape}. "
+                f"Expected (n_timesteps, {N_VERTICES})."
+            )
 
-    if preds.ndim != 2 or preds.shape[1] != N_VERTICES:
-        raise ValueError(
-            f"Unexpected prediction shape from TRIBE v2: {preds.shape}. "
-            f"Expected (n_timesteps, {N_VERTICES})."
-        )
-
-    # Step 4 — collapse time dimension
-    mean_activation: np.ndarray = preds.mean(axis=0).astype(np.float32)
-    return mean_activation   # shape (20484,)
+        # Step 4 — collapse time dimension
+        mean_activation: np.ndarray = preds.mean(axis=0).astype(np.float32)
+        return mean_activation   # shape (20484,)
 
     finally:
         # Always clean up the temp file
