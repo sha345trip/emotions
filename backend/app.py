@@ -59,7 +59,72 @@ try:
     torch.set_grad_enabled(False)  # inference-only; saves memory on CPU
     log.info(f"PyTorch CPU threads set to {_n_threads}, grad disabled.")
 except ImportError:
-    pass  # torch not installed — model loading will fail gracefully later
+    pass
+
+# ── PATCH: Monkeypatch TRIBE v2 for CPU Compatibility ────────────────────
+# TRIBE v2's word extraction hardcodes compute_type="float16", which crashes
+# on the free CPU tier. We replace the internal method with one that uses "int8".
+try:
+    from pathlib import Path
+    import pandas as pd
+    from tribev2.eventstransforms import ExtractWordsFromAudio
+
+    def _get_transcript_from_audio_patched(wav_filename: Path, language: str) -> pd.DataFrame:
+        import json
+        import subprocess
+        import tempfile
+        import torch
+
+        codes = {"english": "en", "french": "fr", "spanish": "es", "dutch": "nl", "chinese": "zh"}
+        if language not in codes: raise ValueError(f"Language {language} not supported")
+
+        # [PATCH] Use cpu + int8 (float16 crashes on free CPU tier)
+        device = "cpu"
+        compute_type = "int8"
+
+        with tempfile.TemporaryDirectory() as output_dir:
+            log.info(f"Running patched whisperx (int8) for {wav_filename.name}...")
+            cmd = [
+                "uvx", "whisperx", str(wav_filename),
+                "--model", "large-v3",
+                "--language", codes[language],
+                "--device", device,
+                "--compute_type", compute_type,
+                "--batch_size", "1", # Lower batch size to stay within 16GB RAM on CPU
+                "--align_model", "WAV2VEC2_ASR_LARGE_LV60K_960H" if language == "english" else "",
+                "--output_dir", output_dir,
+                "--output_format", "json",
+            ]
+            cmd = [c for c in cmd if c]
+            env = {k: v for k, v in os.environ.items() if k != "MPLBACKEND"}
+            result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+            if result.returncode != 0:
+                raise RuntimeError(f"whisperx failed:\n{result.stderr}")
+
+            json_path = Path(output_dir) / f"{wav_filename.stem}.json"
+            transcript = json.loads(json_path.read_text())
+
+        words = []
+        for i, segment in enumerate(transcript.get("segments", [])):
+            sentence = segment.get("text", "").replace('"', "")
+            for word in segment.get("words", []):
+                if "start" not in word: continue
+                words.append({
+                    "text": word["word"].replace('"', ""),
+                    "start": word["start"],
+                    "duration": word["end"] - word["start"],
+                    "sequence_id": i,
+                    "sentence": sentence,
+                })
+        return pd.DataFrame(words)
+
+    # Apply the patch
+    ExtractWordsFromAudio._get_transcript_from_audio = _get_transcript_from_audio_patched
+    log.info("Successfully monkeypatched ExtractWordsFromAudio to use [int8] compute type.")
+
+except Exception as e:
+    log.error(f"Failed to apply TRIBE v2 monkeypatch: {e}")
+  # torch not installed — model loading will fail gracefully later
 
 # ── Sentence cap (CPU latency guard) ─────────────────────────────────────
 # Free CPU tier: ~60–120 s per sentence. Cap keeps total wait ≤ ~10 min.
