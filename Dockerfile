@@ -27,6 +27,7 @@ FROM python:3.11-slim
 # System deps: git (pip install from GitHub) + build tools for numpy/scipy
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
+        ffmpeg \
         build-essential \
     && rm -rf /var/lib/apt/lists/*
 

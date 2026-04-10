@@ -17,8 +17,13 @@ nltk==3.8.1
 
 # Numerical computing (vertex activation arrays)
 numpy==1.26.4
+scipy==1.13.0
+pandas==2.2.2
 
-# NIfTI / GIFTI atlas parsing (used in data/fetch_roi_indices.py setup script)
+# Audio processing (dependencies for TRIBE's internal TTS)
+soundfile==0.12.1
+
+# NIfTI / GIFTI atlas parsing
 nibabel==5.2.0
 
 # HuggingFace Hub — for downloading model weights at startup

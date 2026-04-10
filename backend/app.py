@@ -193,20 +193,25 @@ def run_tribe_on_text(sentence: str) -> np.ndarray:
             # Step 3 — cortical prediction: (n_timesteps, n_vertices)
             preds = _model.predict(events=events_df)   # numpy array
     except ImportError:
-        # torch not available path (should not happen in production)
+        # torch not available path (fallback)
         events_df = _model.get_events_dataframe(text_path=tmp_path)
         preds = _model.predict(events=events_df)
 
-        # Validate shape
-        if preds.ndim != 2 or preds.shape[1] != N_VERTICES:
-            raise ValueError(
-                f"Unexpected prediction shape from TRIBE v2: {preds.shape}. "
-                f"Expected (n_timesteps, {N_VERTICES})."
-            )
+    # ── [FIX] Indented correctly — execute regardless of import path ───────────
+    # Validate shape
+    if preds is None or preds.shape[0] == 0:
+        log.warning(f"TRIBE v2 produced no activation for sentence: '{sentence[:30]}...'")
+        return np.zeros(N_VERTICES, dtype=np.float32)
 
-        # Step 4 — collapse time dimension
-        mean_activation: np.ndarray = preds.mean(axis=0).astype(np.float32)
-        return mean_activation   # shape (20484,)
+    if preds.ndim != 2 or preds.shape[1] != N_VERTICES:
+        raise ValueError(
+            f"Unexpected prediction shape from TRIBE v2: {preds.shape}. "
+            f"Expected (n_timesteps, {N_VERTICES})."
+        )
+
+    # Step 4 — collapse time dimension
+    mean_activation: np.ndarray = preds.mean(axis=0).astype(np.float32)
+    return mean_activation   # shape (20484,)
 
     finally:
         # Always clean up the temp file
@@ -257,7 +262,8 @@ async def health():
         "model_loaded": _model is not None,
         "hardware": "cpu",
         "max_sentences_per_request": MAX_SENTENCES_PER_REQUEST,
-        "version": "0.4.0",
+        "ffmpeg_installed": os.system("ffmpeg -version") == 0,
+        "version": "0.4.1",
     }
 
 
@@ -302,7 +308,11 @@ async def analyse(req: AnalyseRequest):
         )
 
     log.info(f"/analyse — {len(sentences)} sentence(s) received.")
-    return _process_sentences(sentences)
+    try:
+        return _process_sentences(sentences)
+    except Exception as exc:
+        log.error(f"Analysis failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/analyse/batch", response_model=list[SentenceResult], tags=["inference"])
@@ -340,4 +350,8 @@ async def analyse_batch(req: BatchAnalyseRequest):
         )
 
     log.info(f"/analyse/batch — {len(sentences)} sentence(s) received.")
-    return _process_sentences(sentences)
+    try:
+        return _process_sentences(sentences)
+    except Exception as exc:
+        log.error(f"Batch analysis failed: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
