@@ -24,10 +24,10 @@ image = (
         "git+https://github.com/facebookresearch/tribev2.git#egg=tribev2"
     )
     .run_commands("pip install soundfile librosa nibabel matplotlib")
+    .env({"HF_HOME": "/cache", "OMP_NUM_THREADS": "4"})
     # Modal 1.0 way to include local folders
     .add_local_dir("data", remote_path="/root/data")
     .add_local_dir("backend", remote_path="/root/backend")
-    .env({"HF_HOME": "/cache", "OMP_NUM_THREADS": "4"})
 )
 
 # 2. Define Persistent Storage (Volume)
