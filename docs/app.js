@@ -19,7 +19,7 @@
  * Local dev  : "http://localhost:8000"
  * HF Spaces  : "https://<your-space>.hf.space"  ← set in Phase 5
  */
-const BACKEND_URL = "https://shanky1230-emotional-weight.hf.space";  // ? HF Spaces deployed URL
+const BACKEND_URL = "https://sha345trip--emotional-weight-fastapi-app.modal.run";
 
 // ── Region metadata (mirrors data/roi_map.py REGION_META) ─────────────────
 
@@ -129,14 +129,19 @@ async function checkHealth() {
     const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
-      statusDot.className = data.model_loaded
+      const isReady = data.status === "ok" || data.model_loaded;
+      statusDot.className = isReady
         ? "status-dot status-ready"
         : "status-dot status-loading";
-      statusDot.title = data.model_loaded
-        ? `Backend ready · CPU mode · max ${data.max_sentences_per_request ?? MAX_SENTENCES} sentences`
+      
+      statusDot.title = isReady
+        ? `Backend ready · GPU Mode (Modal) · max ${data.max_sentences_per_request ?? MAX_SENTENCES} sentences`
         : "Backend up — TRIBE v2 model loading…";
+      
       if (data.max_sentences_per_request) {
         MAX_SENTENCES = data.max_sentences_per_request;
+      } else if (data.mode === "Modal-GPU-T4") {
+        MAX_SENTENCES = 25; // GPU can handle much more
       }
     }
   } catch {
@@ -167,10 +172,11 @@ async function analyse() {
   // Client-side sentence count check before hitting the API
   const clientSentences = splitSentences(text);
   if (clientSentences.length > MAX_SENTENCES) {
+    const modeText = statusDot.title.includes("GPU") ? "GPU" : "CPU";
     showError(
       `This text has ${clientSentences.length} sentences. ` +
-      `The free CPU backend is limited to ${MAX_SENTENCES} sentences per request ` +
-      `(each takes ~60–120 s on CPU). Please shorten your text or analyse a passage at a time.`
+      `The current ${modeText} backend is limited to ${MAX_SENTENCES} sentences per request. ` +
+      `Please shorten your text or analyse a passage at a time.`
     );
     return;
   }
