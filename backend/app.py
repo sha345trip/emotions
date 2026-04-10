@@ -134,31 +134,59 @@ try:
     _token = os.environ.get("HF_TOKEN")
     if _token:
         huggingface_hub.login(token=_token)
-        # Force these environment variables for libraries that check them directly
         os.environ["HUGGING_FACE_HUB_TOKEN"] = _token
         os.environ["HF_HUB_TOKEN"] = _token
         log.info(f"Authenticated with HuggingFace Hub. Token starts with: {_token[:4]}...")
 
-        # ── MONKEYPATCH: Force token onto all Transformers Hub calls ──────
-        # Neuralset calls from_pretrained() without passing a token. This patch
-        # ensures the token is ALWAYS injected at the lowest level.
+        # ── DIAGNOSTIC: Verify if this token actually has access to Llama 3.2 ──
         try:
-            import transformers.utils.hub as hf_utils
-            _original_cached_file = hf_utils.cached_file
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(repo_id="meta-llama/Llama-3.2-3B", filename="config.json", token=_token)
+            log.info("DIAGNOSTIC: Token successfully verified for meta-llama/Llama-3.2-3B access.")
+        except Exception as diag_err:
+            log.error(f"DIAGNOSTIC FAILURE: Token DOES NOT have access to Llama 3.2. Error: {diag_err}")
+            log.warning("Please ensure you accepted the license at https://huggingface.co/meta-llama/Llama-3.2-3B")
 
-            def _patched_cached_file(*args, **kwargs):
-                if "token" not in kwargs or not kwargs["token"]:
+        # ── NUCLEAR MONKEYPATCH: Deep-intercept all Transformers Hub calls ────
+        try:
+            import transformers
+            from transformers.utils import hub as hf_utils
+            from transformers.configuration_utils import PretrainedConfig
+
+            # 1. Patch cached_file (the lowest level utility)
+            _orig_cached_file = hf_utils.cached_file
+            def _nuclear_cached_file(*args, **kwargs):
+                if not kwargs.get("token") and os.environ.get("HF_TOKEN"):
                     kwargs["token"] = os.environ.get("HF_TOKEN")
-                return _original_cached_file(*args, **kwargs)
+                return _orig_cached_file(*args, **kwargs)
+            hf_utils.cached_file = _nuclear_cached_file
 
-            hf_utils.cached_file = _patched_cached_file
-            log.info("Successfully monkeypatched transformers.utils.hub.cached_file to force token usage.")
+            # 2. Patch get_config_dict (handles config retrieval)
+            _orig_get_config_dict = PretrainedConfig.get_config_dict
+            @classmethod
+            def _nuclear_get_config_dict(cls, *args, **kwargs):
+                if not kwargs.get("token") and os.environ.get("HF_TOKEN"):
+                    kwargs["token"] = os.environ.get("HF_TOKEN")
+                return _orig_get_config_dict(*args, **kwargs)
+            PretrainedConfig.get_config_dict = _nuclear_get_config_dict
+
+            # 3. Handle AutoTokenizer specifically (sometimes bypasses utils.hub)
+            from transformers import AutoTokenizer
+            _orig_auto_tokenizer_from_pretrained = AutoTokenizer.from_pretrained
+            @classmethod
+            def _nuclear_tokenizer_from_pretrained(cls, *args, **kwargs):
+                if not kwargs.get("token") and os.environ.get("HF_TOKEN"):
+                    kwargs["token"] = os.environ.get("HF_TOKEN")
+                return _orig_auto_tokenizer_from_pretrained(*args, **kwargs)
+            AutoTokenizer.from_pretrained = _nuclear_tokenizer_from_pretrained
+
+            log.info("Successfully applied Nuclear Monkeypatch to Transformers (3 layers).")
         except Exception as patch_err:
-            log.warning(f"Could not monkeypatch transformers hub: {patch_err}")
+            log.error(f"Failed to apply Nuclear Monkeypatch: {patch_err}")
     else:
-        log.warning("HF_TOKEN not found in environment. Gated models (Llama 3.2) may fail to load.")
+        log.warning("HF_TOKEN not found in environment. Gated models (Llama 3.2) will fail.")
 except Exception as e:
-    log.error(f"Failed to authenticate with HuggingFace Hub: {e}")
+    log.error(f"Critical error during startup authentication: {e}")
 
 # ── Sentence cap (CPU latency guard) ─────────────────────────────────────
 # Free CPU tier: ~60–120 s per sentence. Cap keeps total wait ≤ ~10 min.
