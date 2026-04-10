@@ -134,7 +134,27 @@ try:
     _token = os.environ.get("HF_TOKEN")
     if _token:
         huggingface_hub.login(token=_token)
+        # Force these environment variables for libraries that check them directly
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = _token
+        os.environ["HF_HUB_TOKEN"] = _token
         log.info(f"Authenticated with HuggingFace Hub. Token starts with: {_token[:4]}...")
+
+        # ── MONKEYPATCH: Force token onto all Transformers Hub calls ──────
+        # Neuralset calls from_pretrained() without passing a token. This patch
+        # ensures the token is ALWAYS injected at the lowest level.
+        try:
+            import transformers.utils.hub as hf_utils
+            _original_cached_file = hf_utils.cached_file
+
+            def _patched_cached_file(*args, **kwargs):
+                if "token" not in kwargs or not kwargs["token"]:
+                    kwargs["token"] = os.environ.get("HF_TOKEN")
+                return _original_cached_file(*args, **kwargs)
+
+            hf_utils.cached_file = _patched_cached_file
+            log.info("Successfully monkeypatched transformers.utils.hub.cached_file to force token usage.")
+        except Exception as patch_err:
+            log.warning(f"Could not monkeypatch transformers hub: {patch_err}")
     else:
         log.warning("HF_TOKEN not found in environment. Gated models (Llama 3.2) may fail to load.")
 except Exception as e:
