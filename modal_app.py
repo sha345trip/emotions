@@ -8,7 +8,7 @@ import os
 import modal
 from typing import List
 
-# 1. Define the Container Image
+# 1. Define the Container Image (Using Modal 1.0 API)
 image = (
     modal.Image.debian_slim(python_version="3.11")
     .apt_install("ffmpeg", "git")
@@ -24,19 +24,16 @@ image = (
         "git+https://github.com/facebookresearch/tribev2.git#egg=tribev2"
     )
     .run_commands("pip install soundfile librosa nibabel matplotlib")
+    # Modal 1.0 way to include local folders
+    .add_local_dir("data", remote_path="/root/data")
+    .add_local_dir("backend", remote_path="/root/backend")
     .env({"HF_HOME": "/cache", "OMP_NUM_THREADS": "4"})
 )
 
-# 3. Define the app with explicit local mounts
-app = modal.App("emotional-weight")
+# 2. Define Persistent Storage (Volume)
+cache_vol = modal.Volume.from_name("emotional-weight-cache", create_if_missing=True)
 
-# Create a mount for the local project structure (data/ and backend/)
-# This ensures these folders are visible inside the container
-local_mount = modal.Mount.from_local_dir(
-    ".", 
-    remote_path="/root",
-    condition=lambda p: any(p.endswith(s) for s in [".py", ".csv", ".json"])
-)
+app = modal.App("emotional-weight")
 
 @app.cls(
     image=image,
@@ -44,7 +41,6 @@ local_mount = modal.Mount.from_local_dir(
     volumes={"/cache": cache_vol},
     secrets=[modal.Secret.from_name("hf-token")],
     scaledown_window=300,
-    mounts=[local_mount],
 )
 class EmotionalWeightModel:
     @modal.enter()
