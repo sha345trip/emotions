@@ -1,12 +1,12 @@
 ---
 title: Emotional Weight
 emoji: 🧠
-colorFrom: amber
+colorFrom: yellow
 colorTo: purple
 sdk: docker
 pinned: false
 license: cc-by-nc-4.0
-short_description: Brain-aware text editor powered by TRIBE v2 — highlights sentences by cortical region activation.
+short_description: Brain-aware text editor highlighting sentences via TRIBE v2.
 ---
 
 # Emotional Weight 🧠
@@ -50,7 +50,7 @@ A sentence dominated by **TPJ** activation reads as emotionally charged. One tha
 │   ┌──────────────────────────┐  ┌──────────────────────────────┐   │
 │   │  Distraction-free        │  │  Brain Region Legend Panel   │   │
 │   │  prose editor (Lora)     │  │  ┌─────┐ TPJ / MTG          │   │
-│   │                          │  │  │amber│ Emotional salience  │   │
+│   │                          │  │  │yell.│ Emotional salience  │   │
 │   │  "She looked out the     │  │  ├─────┤                    │   │
 │   │   window and felt the    │  │  │purp.│ Broca / IFG        │   │
 │   │   cold press of grief…"  │  │  ├─────┤                    │   │
