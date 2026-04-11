@@ -46,11 +46,12 @@ class EmotionalWeightModel:
     @modal.enter()
     def setup(self):
         """Pre-load models into GPU VRAM once at startup."""
+        import os
         import torch
         import nltk
-        from tribev2.main import TribeModel
+        from tribev2 import TribeModel
         
-        # Enable nuclear token injection inside the container
+        # Authentication injection
         if os.environ.get("HF_TOKEN"):
              from huggingface_hub import login
              login(token=os.environ["HF_TOKEN"])
@@ -64,13 +65,17 @@ class EmotionalWeightModel:
 
     @modal.method()
     def predict_sentence(self, sentence: str):
-        """Run inference on a single sentence using the GPU."""
-        import pandas as pd
+        """Run inference on a single sentence and return mean activation."""
         import numpy as np
         
+        # TRIBE v2 handles string input directly in get_events_dataframe
         events_df = self.model.get_events_dataframe(sentence)
         preds = self.model.predict(events=events_df)
-        mean_activation = np.mean(preds, axis=0)
+        
+        if preds is None or preds.shape[0] == 0:
+            return np.zeros(20484, dtype=np.float32).tolist()
+            
+        mean_activation = preds.mean(axis=0).astype(np.float32)
         return mean_activation.tolist()
 
 @app.function(image=image)
@@ -81,7 +86,7 @@ def fastapi_app():
     from pydantic import BaseModel
     import numpy as np
     
-    # Imports for scoring (Now working because the file is in the project root)
+    # Precise imports from regional project folders
     from data.roi_map import REGION_VERTICES
     from backend.roi_scorer import score_regions, classify
 
@@ -98,8 +103,13 @@ def fastapi_app():
         
         for sent in request.sentences:
             try:
+                # 1. GPU Prediction
                 activation_vec = np.array(model.predict_sentence.remote(sent))
+                
+                # 2. ROI Scoring (Glasser mapping)
                 scores = score_regions(activation_vec, REGION_VERTICES)
+                
+                # 3. Winning Region Discovery
                 top_region, confidence = classify(scores)
                 
                 results.append({
