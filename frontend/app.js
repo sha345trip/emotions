@@ -15,11 +15,11 @@
 // ── Configuration ──────────────────────────────────────────────────────────
 
 /**
- * Backend URL — change to switch between local dev and deployed HF Space.
+ * Backend URL — change to switch between local dev and deployed GPU.
  * Local dev  : "http://localhost:8000"
- * HF Spaces  : "https://<your-space>.hf.space"  ← set in Phase 5
+ * Modal GPU  : "https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run"
  */
-const BACKEND_URL = "https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run";
+const BACKEND_URL = "http://localhost:8000";
 
 // ── Region metadata (mirrors data/roi_map.py REGION_META) ─────────────────
 
