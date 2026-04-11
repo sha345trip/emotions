@@ -67,16 +67,26 @@ class EmotionalWeightModel:
     def predict_sentence(self, sentence: str):
         """Run inference on a single sentence and return mean activation."""
         import numpy as np
+        import tempfile
+        import os
         
-        # TRIBE v2 handles string input directly in get_events_dataframe
-        events_df = self.model.get_events_dataframe(sentence)
-        preds = self.model.predict(events=events_df)
-        
-        if preds is None or preds.shape[0] == 0:
-            return np.zeros(20484, dtype=np.float32).tolist()
+        # TRIBE v2 requires a .txt file path
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+            f.write(sentence)
+            tmp_path = f.name
+
+        try:
+            events_df = self.model.get_events_dataframe(text_path=tmp_path)
+            preds = self.model.predict(events=events_df)
             
-        mean_activation = preds.mean(axis=0).astype(np.float32)
-        return mean_activation.tolist()
+            if preds is None or preds.shape[0] == 0:
+                return np.zeros(20484, dtype=np.float32).tolist()
+                
+            mean_activation = preds.mean(axis=0).astype(np.float32)
+            return mean_activation.tolist()
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
 @app.function(image=image)
 @modal.asgi_app()
