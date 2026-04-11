@@ -19,7 +19,7 @@
  * Local dev  : "http://localhost:8000"
  * HF Spaces  : "https://<your-space>.hf.space"  ← set in Phase 5
  */
-const BACKEND_URL = "https://sha345trip--emotional-weight-fastapi-app.modal.run";
+const BACKEND_URL = "https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run";
 
 // ── Region metadata (mirrors data/roi_map.py REGION_META) ─────────────────
 
