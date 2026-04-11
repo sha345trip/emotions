@@ -100,12 +100,18 @@ def fastapi_app():
     from data.roi_map import REGION_VERTICES
     from backend.roi_scorer import score_regions, classify
 
-    web_app = FastAPI(title="Emotional Weight GPU API")
-    web_app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    @web_app.get("/")
+    async def index():
+        return {"message": "Emotional Weight GPU API is online. Query /analyse/batch via POST."}
+
+    @web_app.get("/health")
+    async def health():
+        return {"status": "ok", "mode": "Modal-GPU-T4"}
 
     class AnalysisRequest(BaseModel):
         sentences: List[str]
 
+    @web_app.post("/analyse")
     @web_app.post("/analyse/batch")
     async def analyse(request: AnalysisRequest):
         model = EmotionalWeightModel()
@@ -133,9 +139,5 @@ def fastapi_app():
                 results.append({"sentence": sent, "error": str(e)})
         
         return {"results": results}
-
-    @web_app.get("/health")
-    async def health():
-        return {"status": "ok", "mode": "Modal-GPU-T4"}
 
     return web_app
