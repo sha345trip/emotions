@@ -217,16 +217,19 @@ function renderHighlights(results) {
   const regionCounts = {};
 
   results.forEach((item, idx) => {
+    const isError = !!item.error;
     const meta = REGION_META[item.region] || REGION_META.Neutral;
     const span = document.createElement("span");
 
-    span.className = ["sentence-span", meta.cls].filter(Boolean).join(" ");
+    span.className = ["sentence-span", isError ? "region-error" : meta.cls].filter(Boolean).join(" ");
     span.textContent = item.sentence + " ";
 
     // Data attributes
-    span.dataset.region     = item.region || "Neutral";
-    span.dataset.confidence = (item.confidence * 100).toFixed(1);
+    span.dataset.region     = isError ? "Error" : (item.region || "Neutral");
+    span.dataset.confidence = isError ? "0" : (item.confidence * 100).toFixed(1);
     span.dataset.idx        = idx;
+    
+    if (isError) span.title = `Error: ${item.error}`;
 
     // Accessibility
     span.setAttribute("role", "button");

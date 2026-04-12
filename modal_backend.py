@@ -41,6 +41,7 @@ app = modal.App("emotional-weight-gpu")
     volumes={"/cache": cache_vol},
     secrets=[modal.Secret.from_name("hf-token")],
     scaledown_window=300,
+    max_containers=1,
 )
 class EmotionalWeightModel:
     @modal.enter()
@@ -83,7 +84,11 @@ class EmotionalWeightModel:
             events_df = self.model.get_events_dataframe(text_path=tmp_path)
             preds = self.model.predict(events=events_df)
             
-            if preds is None or preds.shape[0] == 0:
+            # [FIX] Handle tuple return type (activations, states) sometimes returned by TRIBE v2
+            if isinstance(preds, tuple):
+                preds = preds[0]
+            
+            if preds is None or (not hasattr(preds, 'shape')) or preds.shape[0] == 0:
                 return np.zeros(20484, dtype=np.float32).tolist()
                 
             mean_activation = preds.mean(axis=0).astype(np.float32)
@@ -109,8 +114,9 @@ def fastapi_app():
     
     web_app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_origins=["https://sha345trip.github.io", "http://localhost:8000", "http://127.0.0.1:8000"],
+        allow_credentials=True,
+        allow_methods=["*"],
         allow_headers=["*"],
     )
 
