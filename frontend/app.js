@@ -19,7 +19,7 @@
  * Local dev  : "http://localhost:8000"
  * Modal GPU  : "https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run"
  */
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run";
 
 // ── Region metadata (mirrors data/roi_map.py REGION_META) ─────────────────
 

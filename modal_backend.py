@@ -74,6 +74,10 @@ class EmotionalWeightModel:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
             f.write(sentence)
             tmp_path = f.name
+        
+        # Explicitly close so the disk flushes the write
+        # (Alternatively f.flush() + os.fsync(f.fileno()))
+        f.close()
 
         try:
             events_df = self.model.get_events_dataframe(text_path=tmp_path)
@@ -99,6 +103,15 @@ def fastapi_app():
     # Precise imports from regional project folders
     from data.roi_map import REGION_VERTICES
     from backend.roi_scorer import score_regions, classify
+
+    web_app = FastAPI(title="Emotional Weight GPU Backend")
+    
+    web_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
     @web_app.get("/")
     async def index():
