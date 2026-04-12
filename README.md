@@ -16,7 +16,8 @@ short_description: Brain-aware text editor highlighting sentences via TRIBE v2.
 As you write, each sentence is scored against predicted fMRI activation across 20,484 fsaverage5 cortical surface vertices. The dominant brain region for each sentence is highlighted with a meaningful colour, giving writers real-time intuition about the cognitive texture of their prose.
 
 **Live demo:** [sha345trip.github.io/emotions](https://sha345trip.github.io/emotions) ← GitHub Pages frontend  
-**API backend:** [shanky1230-emotional-weight.hf.space](https://shanky1230-emotional-weight.hf.space) ← HuggingFace Spaces (Docker, T4 GPU)
+**API backend:** [sha345trip--emotional-weight-gpu-fastapi-app.modal.run](https://sha345trip--emotional-weight-gpu-fastapi-app.modal.run) ← Modal GPU (T4)
+**Alt backend:** [shanky1230-emotional-weight.hf.space](https://shanky1230-emotional-weight.hf.space) ← HuggingFace Space (Standard CPU)
 
 ---
 
