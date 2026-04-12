@@ -92,9 +92,10 @@ class EmotionalWeightModel:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
-@app.function(image=image)
+@app.function(image=image, timeout=600)
 @modal.asgi_app()
 def fastapi_app():
+    import asyncio
     from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel
@@ -128,29 +129,40 @@ def fastapi_app():
     @web_app.post("/analyse/batch")
     async def analyse(request: AnalysisRequest):
         model = EmotionalWeightModel()
-        results = []
         
-        for sent in request.sentences:
+        async def process_sentence(sent: str):
+            sent = sent.strip()
+            if not sent:
+                return None
             try:
-                # 1. GPU Prediction (Asynchronous)
-                activation_vec = np.array(await model.predict_sentence.remote.aio(sent))
+                # 1. GPU Prediction (Asynchronous, remote worker)
+                activation_list = await model.predict_sentence.remote.aio(sent)
+                activation_vec  = np.array(activation_list, dtype=np.float32)
                 
-                # 2. ROI Scoring (Glasser mapping)
-                scores = score_regions(activation_vec, REGION_VERTICES)
+                # 2. ROI Scoring (Phase 3 logic)
+                # Fixed: score_regions expects a numpy array, REGION_VERTICES is internal to it
+                scores = score_regions(activation_vec)
                 
-                # 3. Winning Region Discovery
-                top_region, confidence = classify(scores)
+                # 3. Winning Region Discovery (Phase 3 logic)
+                # Fixed: classify expects the original activation vector (array)
+                top_region, confidence = classify(activation_vec)
                 
-                results.append({
+                return {
                     "sentence": sent,
                     "region": top_region,
                     "confidence": float(confidence),
                     "all_scores": {k: float(v) for k, v in scores.items()}
-                })
+                }
             except Exception as e:
-                print(f"Error processing sentence: {e}")
-                results.append({"sentence": sent, "error": str(e)})
+                import traceback
+                print(f"Error processing sentence '{sent[:20]}...': {e}")
+                traceback.print_exc()
+                return {"sentence": sent, "error": str(e)}
+
+        # Launch all predictions in parallel across the Modal GPU cluster
+        tasks   = [process_sentence(s) for s in request.sentences]
+        results = await asyncio.gather(*tasks)
         
-        return {"results": results}
+        return {"results": [r for r in results if r is not None]}
 
     return web_app
