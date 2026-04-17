@@ -41,7 +41,6 @@ app = modal.App("emotional-weight-gpu")
     volumes={"/cache": cache_vol},
     secrets=[modal.Secret.from_name("hf-token")],
     scaledown_window=300,
-    max_containers=1,
 )
 class EmotionalWeightModel:
     @modal.enter()
@@ -169,6 +168,6 @@ def fastapi_app():
         tasks   = [process_sentence(s) for s in request.sentences]
         results = await asyncio.gather(*tasks)
         
-        return {"results": [r for r in results if r is not None]}
+        return [r for r in results if r is not None]
 
     return web_app
