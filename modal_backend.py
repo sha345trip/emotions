@@ -61,6 +61,22 @@ class EmotionalWeightModel:
         
         print("🧠 Loading TRIBE v2 and Llama 3.2 into T4 GPU...")
         self.model = TribeModel.from_pretrained("facebook/tribev2")
+        
+        print("🔥 Warming up model (downloads whisperx & wav2vec2 weights into cache/VRAM)...")
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                f.write("Warmup.")
+                tmp_path = f.name
+            f.close()
+            events_df = self.model.get_events_dataframe(text_path=tmp_path)
+            self.model.predict(events=events_df)
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            print("🚀 Warmup complete. All models loaded to VRAM.")
+        except Exception as e:
+            print(f"⚠️ Warmup failed, but continuing: {e}")
+            
         print("✅ Models loaded and ready.")
 
     @modal.method()
