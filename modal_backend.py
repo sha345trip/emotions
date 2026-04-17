@@ -64,37 +64,42 @@ class EmotionalWeightModel:
         print("✅ Models loaded and ready.")
 
     @modal.method()
-    def predict_sentence(self, sentence: str):
-        """Run inference on a single sentence and return mean activation."""
+    def predict_batch(self, sentences: list[str]):
+        """Run inference on a batch of sentences and return a list of mean activations."""
         import numpy as np
         import tempfile
         import os
         
-        # TRIBE v2 requires a .txt file path
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
-            f.write(sentence)
-            tmp_path = f.name
-        
-        # Explicitly close so the disk flushes the write
-        # (Alternatively f.flush() + os.fsync(f.fileno()))
-        f.close()
+        results = []
+        for sentence in sentences:
+            # TRIBE v2 requires a .txt file path
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+                f.write(sentence)
+                tmp_path = f.name
+            f.close()
 
-        try:
-            events_df = self.model.get_events_dataframe(text_path=tmp_path)
-            preds = self.model.predict(events=events_df)
-            
-            # [FIX] Handle tuple return type (activations, states) sometimes returned by TRIBE v2
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            
-            if preds is None or (not hasattr(preds, 'shape')) or preds.shape[0] == 0:
-                return np.zeros(20484, dtype=np.float32).tolist()
+            try:
+                events_df = self.model.get_events_dataframe(text_path=tmp_path)
+                preds = self.model.predict(events=events_df)
                 
-            mean_activation = preds.mean(axis=0).astype(np.float32)
-            return mean_activation.tolist()
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+                # [FIX] Handle tuple return type (activations, states) sometimes returned by TRIBE v2
+                if isinstance(preds, tuple):
+                    preds = preds[0]
+                
+                if preds is None or (not hasattr(preds, 'shape')) or preds.shape[0] == 0:
+                    results.append(np.zeros(20484, dtype=np.float32).tolist())
+                else:
+                    mean_activation = preds.mean(axis=0).astype(np.float32)
+                    results.append(mean_activation.tolist())
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                results.append(None)
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                    
+        return results
 
 @app.function(image=image, timeout=600)
 @modal.asgi_app()
@@ -134,40 +139,36 @@ def fastapi_app():
     @web_app.post("/analyse/batch")
     async def analyse(request: AnalysisRequest):
         model = EmotionalWeightModel()
-        
-        async def process_sentence(sent: str):
-            sent = sent.strip()
-            if not sent:
-                return None
-            try:
-                # 1. GPU Prediction (Asynchronous, remote worker)
-                activation_list = await model.predict_sentence.remote.aio(sent)
+        try:
+            sentences_clean = [s.strip() for s in request.sentences if s.strip()]
+            if not sentences_clean:
+                return []
+                
+            # Send entire batch to a single GPU worker sequentially 
+            # (avoids blowing up concurrency / hitting modal timeouts)
+            activation_lists = await model.predict_batch.remote.aio(sentences_clean)
+            
+            results = []
+            for sent, activation_list in zip(sentences_clean, activation_lists):
+                if activation_list is None:
+                    continue
+                
                 activation_vec  = np.array(activation_list, dtype=np.float32)
-                
-                # 2. ROI Scoring (Phase 3 logic)
-                # Fixed: score_regions expects a numpy array, REGION_VERTICES is internal to it
                 scores = score_regions(activation_vec)
-                
-                # 3. Winning Region Discovery (Phase 3 logic)
-                # Fixed: classify expects the original activation vector (array)
                 top_region, confidence = classify(activation_vec)
                 
-                return {
+                results.append({
                     "sentence": sent,
                     "region": top_region,
                     "confidence": float(confidence),
                     "all_scores": {k: float(v) for k, v in scores.items()}
-                }
-            except Exception as e:
-                import traceback
-                print(f"Error processing sentence '{sent[:20]}...': {e}")
-                traceback.print_exc()
-                return {"sentence": sent, "error": str(e)}
-
-        # Launch all predictions in parallel across the Modal GPU cluster
-        tasks   = [process_sentence(s) for s in request.sentences]
-        results = await asyncio.gather(*tasks)
-        
-        return [r for r in results if r is not None]
+                })
+            
+            return results
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            from fastapi import HTTPException
+            raise HTTPException(status_code=500, detail=str(e))
 
     return web_app
